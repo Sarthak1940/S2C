@@ -76,13 +76,11 @@ export const getUserProjects = query({
         limit: v.optional(v.number()),
     },
     handler: async (ctx, { userId, limit = 20 }) => {
-        const allProjects = await ctx.db
+        const projects = await ctx.db
                           .query("projects")
                           .withIndex("by_userId", (q: any) => q.eq("userId", userId))
                           .order("desc")
-                          .collect();
-
-        const projects = allProjects.slice(0, limit);
+                          .take(limit);        
 
         return projects.map(p => ({
             id: p._id,

@@ -66,7 +66,7 @@ export const useMoodBoard = (guideImages: MoodBoardImage[]) => {
             return {storageId}
         } catch (error) {
             console.error(error);
-            return {storageId: ""}
+            throw error;
         }
     }
 
@@ -185,8 +185,12 @@ export const useMoodBoard = (guideImages: MoodBoardImage[]) => {
         }
 
         imageFiles.forEach((file) => {
-            if (images.length < 5) {
-                addImage(file)
+            const remainingSlots = 5 - images.length;
+            const filesToAdd = imageFiles.slice(0, remainingSlots);
+            filesToAdd.forEach((file) => addImage(file));
+
+            if (imageFiles.length > remainingSlots) {
+                toast.error(`Only ${remainingSlots} image(s) added. Maximum 5 images allowed.`);
             }
         })
     }
