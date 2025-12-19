@@ -69,3 +69,42 @@ async function getNextProjectNumber(ctx: any, userId: string): Promise<number> {
 
     return projectNumber;
 }
+
+export const getUserProjects = query({
+    args: {
+        userId: v.id("users"),
+        limit: v.optional(v.number()),
+    },
+    handler: async (ctx, { userId, limit = 20 }) => {
+        const projects = await ctx.db
+                          .query("projects")
+                          .withIndex("by_userId", (q: any) => q.eq("userId", userId))
+                          .order("desc")
+                          .take(limit);        
+
+        return projects.map(p => ({
+            id: p._id,
+            name: p.name,
+            projectNumber: p.projectNumber,
+            thumbnail: p.thumbnail,
+            lastModified: p.lastModified,
+            createdAt: p.createdAt,
+            isPublic: p.isPublic
+        }))
+    }
+})
+
+export const getProjectStyleGuide = query({
+    args: {projectId: v.id("projects")},
+    handler: async (ctx, {projectId}) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const project = await ctx.db.get(projectId);
+        if (!project) throw new Error("Project not found");
+
+        if (project.userId !== userId && !project.isPublic) throw new Error("Access Denied");
+
+        return project.styleGuide ? JSON.parse(project.styleGuide) : null;
+    }
+})
