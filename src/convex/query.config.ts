@@ -27,7 +27,7 @@ export const SubscriptionEntitlementQuery = async () => {
     return { entitlement, profileName: profile?.name }
 }
 
-export const ProjectQuery = async () => {
+export const ProjectsQuery = async () => {
     const rawProfile = await ProfileQuery()
     const profile = normalizeProfile(
         rawProfile._valueJSON as unknown as ConvexUserRaw | null
@@ -42,6 +42,23 @@ export const ProjectQuery = async () => {
     )
 
     return { projects, profile }
+}
+
+export const ProjectQuery = async (projectId: string) => {
+    const rawProfile = await ProfileQuery()
+    const profile = normalizeProfile(
+        rawProfile._valueJSON as unknown as ConvexUserRaw | null
+    )
+
+    if (!profile?.id || !projectId) return {projects: null, profile: null}
+
+    const project = await preloadQuery(
+        api.projects.getProject,
+        { projectId: projectId as Id<"projects"> },
+        { token: await convexAuthNextjsToken() }
+    )
+
+    return { project, profile }
 }
 
 export const StyleGuideQuery = async (projectId: string) => {
