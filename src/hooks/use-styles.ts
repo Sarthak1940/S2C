@@ -184,15 +184,13 @@ export const useMoodBoard = (guideImages: MoodBoardImage[]) => {
             return;
         }
 
-        imageFiles.forEach((file) => {
-            const remainingSlots = 5 - images.length;
-            const filesToAdd = imageFiles.slice(0, remainingSlots);
-            filesToAdd.forEach((file) => addImage(file));
+        const remainingSlots = 5 - images.length;
+        const filesToAdd = imageFiles.slice(0, remainingSlots);
+        filesToAdd.forEach((file) => addImage(file));
 
-            if (imageFiles.length > remainingSlots) {
-                toast.error(`Only ${remainingSlots} image(s) added. Maximum 5 images allowed.`);
-            }
-        })
+        if (imageFiles.length > remainingSlots) {
+            toast.error(`Only ${remainingSlots} image(s) added. Maximum 5 images allowed.`);
+        }
     }
 
     const handleFileInput = (e: ChangeEvent<HTMLInputElement>) => {

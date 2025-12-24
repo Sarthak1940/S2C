@@ -1,3 +1,4 @@
+import { Point } from "@/redux/slice/viewport";
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -21,4 +22,29 @@ export const combineSlug = (name: string, maxLen = 80): string => {
   if (s.length > maxLen) s.slice(0, maxLen)
 
   return s
+}
+
+export const polylineBox = (
+  points: ReadonlyArray<Point>
+) => {
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+
+  for (const point of points) {
+    minX = Math.min(minX, point.x)
+    minY = Math.min(minY, point.y)
+    maxX = Math.max(maxX, point.x)
+    maxY = Math.max(maxY, point.y)
+  }
+
+  return {
+    minX,
+    minY,
+    maxX,
+    maxY,
+    width: maxX - minX,
+    height: maxY - minY
+  }
 }

@@ -1,3 +1,4 @@
+"use client"
 import { MoodBoardImage, useMoodBoard } from '@/hooks/use-styles'
 import { cn } from '@/lib/utils'
 import React, { useRef } from 'react'
