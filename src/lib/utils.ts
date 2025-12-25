@@ -27,6 +27,11 @@ export const combineSlug = (name: string, maxLen = 80): string => {
 export const polylineBox = (
   points: ReadonlyArray<Point>
 ) => {
+
+  if (points.length === 0) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 }
+  }
+
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity

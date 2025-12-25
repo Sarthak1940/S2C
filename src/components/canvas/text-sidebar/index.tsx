@@ -65,7 +65,7 @@ const TextSidebar = ({isOpen}: Props) => {
     <div
     className={cn(
         "fixed right-5 top-1/2 transform -translate-y-1/2 w-80 backdrop-blur-xl bg-white/8 border  border-white/12 gap-2 p-3 saturate-150 rounded-lg z-50 transition-transform duration-300",
-        true ? "translate-x-0" : "translate-x-full"
+        isOpen ? "translate-x-0" : "translate-x-full"
     )}
     >
         <div className='p-4 flex flex-col gap-6 overflow-y-auto max-h-[calc(100vh-8rem)]'>

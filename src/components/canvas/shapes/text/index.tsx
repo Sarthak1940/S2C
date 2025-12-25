@@ -95,7 +95,7 @@ export const Text = ({ shape }: { shape: TextShape }) => {
 
   return (
     <div
-      className="absolute pointer-events-none cursor-text select-none rounded px-2 py-1"
+      className="absolute pointer-events-auto cursor-text select-none rounded px-2 py-1"
       style={{
         left: shape.x,
         top: shape.y,
@@ -115,7 +115,6 @@ export const Text = ({ shape }: { shape: TextShape }) => {
       onDoubleClick={handleDoubleClick}
       title="Double-click to edit">
       <span
-        className="pointer-events-auto"
         style={{ display: "block", minWidth: "20px", minHeight: "1em" }}>
         {shape.text}
       </span>

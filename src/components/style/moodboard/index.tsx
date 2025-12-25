@@ -39,7 +39,7 @@ const MoodBoard = ({ guideImages }: Props) => {
       onDragLeave={handleDrag}
       >
         <div className='absolute inset-0 opacity-5'>
-          <div className='w-full h-full bg-linear-to-br from-primary/20 to-transparent rounded-3xl'/>
+          <div className='w-full h-full bg-gradient-to-br from-primary/20 to-transparent rounded-3xl'/>
         </div>
 
         {images.length > 0 && <>
@@ -116,7 +116,7 @@ const MoodBoard = ({ guideImages }: Props) => {
               <h3 className='text-lg font-medium text-foreground'>
                 Drop your images here
               </h3>
-              <p className='text-sm text-muted-foreground mx-w-md mx-auto'>
+              <p className='text-sm text-muted-foreground max-w-md mx-auto'>
                 Drag and Drop upto 5 images on your mood board
               </p>
             </div>

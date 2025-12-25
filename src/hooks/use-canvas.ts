@@ -1,5 +1,6 @@
 "use client"
-import { Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawShape, addLine, addRect, addText, clearSelection, removeShape, selectShape, setTool, updateShape } from "@/redux/slice/shapes";
+import { downloadBlob, generateFrameSnapshot } from "@/lib/frame-snapshot";
+import { FrameShape, Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawShape, addLine, addRect, addText, clearSelection, removeShape, selectShape, setTool, updateShape } from "@/redux/slice/shapes";
 import { Point, handToolDisable, handToolEnable, panEnd, panMove, panStart, screenToWorld, wheelPan, wheelZoom } from "@/redux/slice/viewport";
 import { useAppDispatch, useAppSelector } from "@/redux/store"
 import { PointerEventHandler, useEffect, useRef, useState } from "react";
@@ -30,7 +31,7 @@ export const useInfinityCanvas = () => {
     const selectedShapes = useAppSelector(state => state.shapes.selected)
 
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false)
-    const shapeEntities = useAppSelector(state => state.shapes.entities) 
+    const shapeEntities = useAppSelector(state => state.shapes.shapes.entities) 
 
     const hasSelectedText = Object.keys(selectedShapes).some((id) => {
         const shape = shapeEntities[id];
@@ -256,7 +257,7 @@ export const useInfinityCanvas = () => {
             const panByShift = isSpacePressed.current && e.button === 0
 
             if (isPanButton || panByShift) {
-                const mode = isSpacePressed ? "shiftPanning" : "panning"
+                const mode = isSpacePressed.current ? "shiftPanning" : "panning"
                 dispatch(panStart({screen: local, mode}))
                 return
             }
@@ -845,4 +846,41 @@ export const useInfinityCanvas = () => {
         setIsSidebarOpen
         
     }
+}
+
+
+export const useFrame = (shape: FrameShape) => {
+    const dispatch = useAppDispatch()
+    const [isGenerating, setIsGenerating] = useState<boolean>(false)
+
+    const allShapes = useAppSelector((state) => 
+        Object.values(state.shapes.shapes?.entities || {}).filter(
+            (shape): shape is Shape => shape !== undefined
+        )
+    )
+
+    const handleGenerateDesign = async () => {
+        try {
+            setIsGenerating(true)
+            const snapshot = await generateFrameSnapshot(shape, allShapes)
+
+            downloadBlob(snapshot, `frame-${shape.frameNumber}-snapshot.png`)
+
+            const formData = new FormData()
+            formData.append("image", snapshot, `frame-${shape.frameNumber}-snapshot.png`)
+            formData.append("frameNumber", shape.frameNumber.toString())
+            
+            const urlParams = new URLSearchParams(window.location.search)
+            const projectId = urlParams.get("project")
+
+            if (projectId) {
+                formData.append("projectId", projectId)
+            }
+
+        } catch (error) {
+            
+        }
+    }
+
+    return {isGenerating, handleGenerateDesign}
 }
