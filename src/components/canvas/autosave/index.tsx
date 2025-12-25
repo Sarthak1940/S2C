@@ -12,18 +12,18 @@ const Autosave = () => {
     const [autosaveProject, { isLoading: isSaving }] = useAutosaveProjectMutation()
 
     const searchParams = useSearchParams()
-    const projectId = searchParams.get("projectId")
+    const projectId = searchParams.get("project")
     const user = useAppSelector(state => state.profile)
     const shapesStates = useAppSelector(state => state.shapes)
     const viewportState = useAppSelector(state => state.viewport)
 
-    const abortRef = useRef<AbortController | null>(null)
+    const abortRef = useRef<{ abort: () => void } | null>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const lastSaveRef = useRef<string>("")
     const isReady = Boolean(projectId && user?.id)
 
     useEffect(() => {
-        if (isReady) return 
+        if (!isReady) return 
 
         const stateString = JSON.stringify({
             shapes: shapesStates,
@@ -37,11 +37,11 @@ const Autosave = () => {
         debounceRef.current = setTimeout(async () => {
             lastSaveRef.current = stateString
             if (abortRef.current) abortRef.current.abort()
-            abortRef.current = new AbortController()
+            
             setSaveStatus("saving")
             
             try {
-                await autosaveProject({
+                const promise = autosaveProject({
                     projectId: projectId as string,
                     userId: user?.id as string,
                     shapesData: shapesStates,
@@ -49,12 +49,16 @@ const Autosave = () => {
                         scale: viewportState.scale,
                         translate: viewportState.translate
                     }
-                }).unwrap()
+                })
+                abortRef.current = promise
+                await promise.unwrap()
 
                 setSaveStatus("saved")
 
                 setTimeout(() => setSaveStatus("idle"), 2000)
             } catch (error) {
+                // Ignore errors caused by aborting the request
+                if ((error as any)?.name === "AbortError") return
                 setSaveStatus("error")
                 setTimeout(() => setSaveStatus("idle"), 3000)
             }

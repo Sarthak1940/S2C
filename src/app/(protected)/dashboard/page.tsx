@@ -7,9 +7,9 @@ import React from 'react'
 const Page = async () => {
   const { entitlement, profileName } = await SubscriptionEntitlementQuery();
 
-  // if (!entitlement._valueJSON) {
-  //   redirect(`/billing/${combineSlug(profileName!)}`)
-  // }
+  if (!entitlement._valueJSON) {
+    redirect(`/billing/${combineSlug(profileName!)}`)
+  }
 
   redirect(`/dashboard/${combineSlug(profileName!)}`)
 }

@@ -11,6 +11,9 @@ type Props = {
 const Layout = async ({children}: Props) => {
     const {profileName, entitlement} = await SubscriptionEntitlementQuery();
 
+    if (!entitlement._valueJSON) {
+        redirect(`/billing/${combineSlug(profileName!)}`)
+    }
     
   return (
     <div className='grid grid-cols-1'>

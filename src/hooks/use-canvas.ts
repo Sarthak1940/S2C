@@ -878,7 +878,9 @@ export const useFrame = (shape: FrameShape) => {
             }
 
         } catch (error) {
-            
+            console.error("Failed to generate frame snapshot:", error)
+        } finally {
+            setIsGenerating(false)
         }
     }
 

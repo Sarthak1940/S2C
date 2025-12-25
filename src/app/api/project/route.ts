@@ -24,7 +24,7 @@ export async function PATCH(request: NextRequest) {
         const body: UpdateProjectRequest & { userId?: string} = await request.json() 
         const {projectId, shapesData, viewportData, userId} = body
 
-        if (!projectId || !shapesData || !viewportData) {
+        if (!projectId || !shapesData) {
             return NextResponse.json({error: "Missing required fields"}, {status: 400})
         }
 
