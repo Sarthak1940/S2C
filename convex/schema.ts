@@ -25,7 +25,8 @@ const schema = defineSchema({
   })
     .index("by_userId", ["userId"])
     .index("by_polarCustomerId", ["polarCustomerId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_polarSubscriptionId", ["polarSubscriptionId"]),
   credits_ledger: defineTable({
     userId: v.id("users"),
     subscriptionId: v.id("subscriptions"),
