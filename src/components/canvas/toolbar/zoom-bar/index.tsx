@@ -42,7 +42,7 @@ const ZoomBar = () => {
 
             <Button
             variant={"ghost"}
-            size={"sm"}
+            size={"lg"}
             onClick={handleZoomIn}
             className='w-9 h-9 p-0 rounded-full cursor-pointer hover:bg-white/12 border border-transparent hover:border-white/16 transition-all'
             title='Zoom In'

@@ -50,7 +50,7 @@ export const ProjectQuery = async (projectId: string) => {
         rawProfile._valueJSON as unknown as ConvexUserRaw | null
     )
 
-    if (!profile?.id || !projectId) return {projects: null, profile: null}
+    if (!profile?.id || !projectId) return {project: null, profile: null}
 
     const project = await preloadQuery(
         api.projects.getProject,

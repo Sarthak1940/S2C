@@ -40,7 +40,7 @@ const InfiniteCanvas = (props: Props) => {
         <div
         ref={attachCanvasRef}
         role="application"
-        aria-label="Infinite drawing canavs"
+        aria-label="Infinite drawing canvas"
         className={cn(
           "relative h-full w-full overflow-hidden select-none z-0",
           {
