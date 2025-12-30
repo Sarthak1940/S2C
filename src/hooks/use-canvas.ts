@@ -1,8 +1,9 @@
 "use client"
 import { downloadBlob, generateFrameSnapshot } from "@/lib/frame-snapshot";
-import { FrameShape, Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawShape, addLine, addRect, addText, clearSelection, removeShape, selectShape, setTool, updateShape } from "@/redux/slice/shapes";
+import { FrameShape, Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawShape, addGeneratedUI, addLine, addRect, addText, clearSelection, removeShape, selectShape, setTool, updateShape } from "@/redux/slice/shapes";
 import { Point, handToolDisable, handToolEnable, panEnd, panMove, panStart, screenToWorld, wheelPan, wheelZoom } from "@/redux/slice/viewport";
 import { useAppDispatch, useAppSelector } from "@/redux/store"
+import { nanoid } from "@reduxjs/toolkit";
 import { PointerEventHandler, useEffect, useRef, useState } from "react";
 
 interface TouchPointer {
@@ -877,6 +878,71 @@ export const useFrame = (shape: FrameShape) => {
                 formData.append("projectId", projectId)
             }
 
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                body: formData
+            })
+
+            if (!response.ok) {
+                throw new Error("Failed to generate design")
+            }
+
+            const generatedUIPosition = {
+                x: shape.x + shape.w + 50,
+                y: shape.y,
+                w: Math.max(400, shape.w),
+                h: Math.max(300, shape.h)
+            }
+
+            const generatedUUID = nanoid()
+
+            dispatch(addGeneratedUI({
+                ...generatedUIPosition,
+                id: generatedUUID,
+                uiSpecData: null,
+                sourceFrameId: shape.id   
+            }))
+
+            const reader = response.body?.getReader()
+            const decoder = new TextDecoder()
+            let accumulatedMarkup = ""
+
+            let lastUpdateTime = 0
+            const UPDATE_THROTTLE_MS = 200
+
+            if (reader) {
+                try {
+                    while (true) {
+                        const {done, value} = await reader.read()
+                        if (done) {
+                            dispatch(updateShape({
+                                id: generatedUUID,
+                                patch: {
+                                    uiSpecData: accumulatedMarkup
+                                }
+                            }))
+                            break;
+                        }
+
+                        const chunk = decoder.decode(value)
+                        accumulatedMarkup += chunk
+
+                        const now = Date.now()
+                        if (now - lastUpdateTime >= UPDATE_THROTTLE_MS) {
+                            dispatch(updateShape({
+                                id: generatedUUID,
+                                patch: {
+                                    uiSpecData: accumulatedMarkup
+                                }
+                            }))
+                            lastUpdateTime = now
+                        } 
+                    }
+                } finally {
+                    reader.releaseLock()
+                }
+            }
+
         } catch (error) {
             console.error("Failed to generate frame snapshot:", error)
         } finally {
@@ -885,4 +951,22 @@ export const useFrame = (shape: FrameShape) => {
     }
 
     return {isGenerating, handleGenerateDesign}
+}
+
+export const useInspiration = () => {
+    const [isInspirationOpen, setIsInspirationOpen] = useState<boolean>(false)
+
+    const toggleInspiration = () => {
+        setIsInspirationOpen(!isInspirationOpen)
+    }
+
+    const closeInspiration = () => {
+        setIsInspirationOpen(false)
+    }
+
+    const openInspiration = () => {
+        setIsInspirationOpen(true)
+    }
+
+    return {isInspirationOpen, toggleInspiration, closeInspiration, openInspiration}
 }

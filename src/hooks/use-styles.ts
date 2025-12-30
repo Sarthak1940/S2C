@@ -1,10 +1,13 @@
 import { useMutation } from "convex/react";
-import { useSearchParams } from "next/navigation";
-import { ChangeEvent, DragEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChangeEvent, DragEvent, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { api } from "../../convex/_generated/api";
 import { toast } from "sonner";
 import { Id } from "../../convex/_generated/dataModel";
+import { useGenerateStyleGuideMutation } from "@/redux/api/style-guide";
+import { GeneratedUIShape, updateShape } from "@/redux/slice/shapes";
+import { useAppDispatch } from "@/redux/store";
 
 export interface MoodBoardImage {
     id: string;
@@ -269,5 +272,94 @@ export const useMoodBoard = (guideImages: MoodBoardImage[]) => {
         handleDrop,
         handleFileInput,
         canAddMore: images.length < 5
+    }
+}
+
+export const useStyleGuide = (projectId: string, images: MoodBoardImage[], fileInputRef: React.RefObject<HTMLInputElement | null>) => {
+    const [generateStyleGuide, {isLoading: isGenerating}] = useGenerateStyleGuideMutation()
+    const router = useRouter()
+    const handleUploadClick = () => fileInputRef.current?.click()
+
+    const handleGenerateStyleGuide = async () => {
+        if (!projectId) {
+            toast.error("Project ID is required")
+            return;
+        }
+
+        if (images.length === 0) {
+            toast.error("No images added")
+            return;
+        }
+
+        if (images.some(img => img.uploading)) {
+            toast.error("Please wait for all images to upload")
+            return;
+        }
+
+        try {
+            toast.loading("Analyzing mood board images...", {
+                id: "style-guide-generation"
+            })
+
+            const result = await generateStyleGuide({projectId}).unwrap()
+            if (!result?.success) {
+                toast.error(result?.message ?? "Failed to generate style guide", {id: "style-guide-generation"})
+                return;
+            } 
+
+            router.refresh()
+            toast.success("Style guide generated successfully", {id: "style-guide-generation"})
+            setTimeout(() => {
+                toast.success("Style guide generated! Switch to the Colours tab to see the results", 
+                    {duration: 5000}
+                )
+            }, 1000)
+
+        } catch (error) {
+            console.error(error)
+            toast.error("Failed to generate style guide")
+        }
+    }
+
+    return {
+        isGenerating,
+        handleGenerateStyleGuide,
+        handleUploadClick
+    }
+}
+
+export const useUpdateContainer = (shape: GeneratedUIShape) => {
+    const dispatch = useAppDispatch()
+    const containerRef = useRef<HTMLDivElement | null>(null)
+
+    useEffect(() => {
+        if (containerRef.current && shape.uiSpecData) {
+            const timeoutId = setTimeout(() => {
+                const actualHeight = containerRef.current?.offsetHeight || 0
+                if (actualHeight > 0 && Math.abs(actualHeight - shape.h) > 10) {
+                    dispatch(updateShape({
+                        id: shape.id,
+                        patch: {h: actualHeight}
+                    })) 
+                }
+            }, 100)
+
+            return () => clearTimeout(timeoutId)
+        }
+    }, [shape.uiSpecData, shape.id, shape.h, dispatch])
+
+    const sanitizeHtml = (html: string) => {
+        const sanitized = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "")
+            .replace(/on\w+="[^"]*"/gi, "")
+            .replace(/javascript:/gi, "")
+            .replace(/data:/gi, "")
+        return sanitized
+    }
+
+    return {
+        sanitizeHtml,
+        containerRef
     }
 }

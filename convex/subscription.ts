@@ -197,3 +197,52 @@ const ENTITLED = new Set(["active", "trialing"])
         return sub.creditsBalance
     }
  })
+
+ export const consumeCredits = mutation({
+    args: {
+        userId: v.id("users"),
+        amount: v.number(),
+        reason: v.string(),
+        idempotencyKey: v.optional(v.string())
+    },
+    handler: async (ctx, {userId, amount, reason, idempotencyKey}) => {
+        if (amount <= 0) return { ok: false, error: "invalid-amount" }
+
+        if (idempotencyKey) {
+            const dupe = await ctx.db.query("credits_ledger")
+                .withIndex("by_idempotencyKey", (q) => q.eq("idempotencyKey", idempotencyKey))
+                .first()
+
+            if (dupe) return { ok: true, idempotent: true, reason: "duplicate-ledger" }
+        }
+        
+        const sub = await ctx.db.query("subscriptions")
+            .withIndex("by_userId", (q) => q.eq("userId", userId))
+            .first()
+
+        if (!sub) return { ok: false, error: "subscription-not-found" }
+        if (!ENTITLED.has(sub.status)) return { ok: true, skipped: true, reason: "not-entitled" }
+
+        if (sub.creditsBalance < amount) {
+            return { ok: false, error: "insufficient-credits", balance: sub.creditsBalance }
+        }
+
+        const next = sub.creditsBalance - amount
+
+        await ctx.db.patch(sub._id, {
+            creditsBalance: next
+        })
+
+        await ctx.db.insert("credits_ledger", {
+            userId,
+            subscriptionId: sub._id,
+            amount: -amount,
+            type: "consume",
+            reason: reason ?? "usage",
+            idempotencyKey,
+            meta: {prev: sub.creditsBalance, next}
+        })
+
+        return { ok: true, balance: next }
+    }
+ })
