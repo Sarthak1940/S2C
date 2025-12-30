@@ -1,5 +1,5 @@
 "use client"
-import { useInfinityCanvas } from '@/hooks/use-canvas'
+import { useInfinityCanvas, useInspiration } from '@/hooks/use-canvas'
 import React from 'react'
 import TextSidebar from './text-sidebar'
 import { cn } from '@/lib/utils'
@@ -32,6 +32,8 @@ const InfiniteCanvas = (props: Props) => {
 
     const draftShape = getDraftShape()
     const freeDrawPoints = getFreeDrawPoints()
+
+    const {isInspirationOpen, closeInspiration, toggleInspiration} = useInspiration()
 
   return (
     <>

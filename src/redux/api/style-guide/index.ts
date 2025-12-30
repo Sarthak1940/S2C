@@ -1,3 +1,4 @@
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react"
 
 export interface TypographySection {
     title: string
@@ -43,3 +44,39 @@ export interface StyleGuide {
     typographySection: [TypographySection, TypographySection, TypographySection]
 
 }
+
+export interface GenerateStyleGuideRequest {
+    projectId: string
+}
+
+export interface GenerateStyleGuideResponse {
+    success: boolean
+    message: string
+    styleGuide: StyleGuide
+}
+
+export const StyleGuideApi = createApi({
+    reducerPath: "StyleGuideApi",
+    baseQuery: fetchBaseQuery({
+        baseUrl: "/api/generate"
+    }),
+    tagTypes: ["StyleGuide"],
+    endpoints: (builder) => ({
+        generateStyleGuide: builder.mutation<
+        GenerateStyleGuideResponse,
+        GenerateStyleGuideRequest
+        >({
+            query: ({projectId}) => ({
+                url: "/style",
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: {projectId}
+            }),
+            invalidatesTags: ["StyleGuide"]
+        })
+    })
+})
+
+export const { useGenerateStyleGuideMutation } = StyleGuideApi
