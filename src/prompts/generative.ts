@@ -1,19 +1,26 @@
-//style
-const userPrompt = `Analyze these ${imageUrls.length} mood board images and generate a design system:
+export const getStylePrompt = (imageUrls: string[]) => `Analyze these ${imageUrls.length} mood board images and generate a design system:
     Extract colors that work harmoniously together and create typography that matches the aesthetic. Return ONLY the JSON object matching the exact schema structure above.`;
 
-//redesign
-let userPrompt = `Please redesign this UI based on my request: "${userMessage}"`;
+export const getRedesignPrompt = (userMessage: string, currentHTML: string) => {
+  let userPrompt = `Please redesign this UI based on my request: "${userMessage}"`;
 
-userPrompt += `\n\nWireframe Context: I'm providing a wireframe image that shows the EXACT original design layout and structure that this UI was generated from. This wireframe represents the specific frame that was used to create the current design. Please use this as visual context to understand the intended layout, structure, and design elements when making improvements. The wireframe shows the original wireframe/mockup that the user drew or created.`;
+  userPrompt += `\n\nWireframe Context: I'm providing a wireframe image that shows the EXACT original design layout and structure that this UI was generated from. This wireframe represents the specific frame that was used to create the current design. Please use this as visual context to understand the intended layout, structure, and design elements when making improvements. The wireframe shows the original wireframe/mockup that the user drew or created.`;
 
-userPrompt += `\n\nCurrent HTML for reference:\n${currentHTML.substring(
-  0,
-  1000
-)}...`;
+  userPrompt += `\n\nCurrent HTML for reference:\n${currentHTML.substring(
+    0,
+    1000
+  )}...`;
+  return userPrompt;
+};
 
-//workflow
-let userPrompt = `You are tasked with creating a workflow page that complements the provided main page design. 
+export const getWorkflowPagePrompt = (
+  selectedPageType: string,
+  currentHTML: string,
+  colors: any[],
+  typography: any[],
+  imageUrls: string[]
+) => {
+  let userPrompt = `You are tasked with creating a workflow page that complements the provided main page design. 
 
 MAIN PAGE REFERENCE (for design consistency):
 ${currentHTML.substring(0, 2000)}...
@@ -50,59 +57,61 @@ CONTENT GUIDELINES:
 
 Please generate a complete, professional HTML page that serves as a ${selectedPageType} while maintaining perfect visual and functional consistency with the main design.`;
 
-if (colors.length > 0) {
-  userPrompt += `\n\nStyle Guide Colors:\n${(
-    colors as Array<{
-      swatches: Array<{
-        name: string;
-        hexColor: string;
-        description: string;
-      }>;
-    }>
-  )
-    .map((color) =>
-      color.swatches
-        .map(
-          (swatch) =>
-            `${swatch.name}: ${swatch.hexColor}, ${swatch.description}`
-        )
-        .join(", ")
+  if (colors.length > 0) {
+    userPrompt += `\n\nStyle Guide Colors:\n${(
+      colors as Array<{
+        swatches: Array<{
+          name: string;
+          hexColor: string;
+          description: string;
+        }>;
+      }>
     )
-    .join(", ")}`;
-}
+      .map((color) =>
+        color.swatches
+          .map(
+            (swatch) =>
+              `${swatch.name}: ${swatch.hexColor}, ${swatch.description}`
+          )
+          .join(", ")
+      )
+      .join(", ")}`;
+  }
 
-if (typography.length > 0) {
-  userPrompt += `\n\nTypography:\n${(
-    typography as Array<{
-      styles: Array<{
-        name: string;
-        description: string;
-        fontFamily: string;
-        fontWeight: string;
-        fontSize: string;
-        lineHeight: string;
-      }>;
-    }>
-  )
-    .map((typo) =>
-      typo.styles
-        .map(
-          (style) =>
-            `${style.name}: ${style.description}, ${style.fontFamily}, ${style.fontWeight}, ${style.fontSize}, ${style.lineHeight}`
-        )
-        .join(", ")
+  if (typography.length > 0) {
+    userPrompt += `\n\nTypography:\n${(
+      typography as Array<{
+        styles: Array<{
+          name: string;
+          description: string;
+          fontFamily: string;
+          fontWeight: string;
+          fontSize: string;
+          lineHeight: string;
+        }>;
+      }>
     )
-    .join(", ")}`;
-}
+      .map((typo) =>
+        typo.styles
+          .map(
+            (style) =>
+              `${style.name}: ${style.description}, ${style.fontFamily}, ${style.fontWeight}, ${style.fontSize}, ${style.lineHeight}`
+          )
+          .join(", ")
+      )
+      .join(", ")}`;
+  }
 
-if (imageUrls.length > 0) {
-  userPrompt += `\n\nInspiration Images Available: ${imageUrls.length} reference images for visual style and inspiration.`;
-}
+  if (imageUrls.length > 0) {
+    userPrompt += `\n\nInspiration Images Available: ${imageUrls.length} reference images for visual style and inspiration.`;
+  }
 
-userPrompt += `\n\nPlease generate a professional ${selectedPageType} that maintains complete design consistency with the main page while serving its specific functional purpose. Be creative and contextually appropriate!`;
+  userPrompt += `\n\nPlease generate a professional ${selectedPageType} that maintains complete design consistency with the main page while serving its specific functional purpose. Be creative and contextually appropriate!`;
+  return userPrompt;
+};
 
-//generate
-const userPrompt = `Use the user-provided styleGuide for all visual decisions: map its colors, typography scale, spacing, and radii directly to Tailwind v4 utilities (use arbitrary color classes like text-[#RRGGBB] / bg-[#RRGGBB] when hexes are given), enforce WCAG AA contrast (≥4.5:1 body, ≥3:1 large text), and if any token is missing fall back to neutral light defaults. Never invent new tokens; keep usage consistent across components.
+export const getGeneratePrompt = (colors: any[], typography: any[]) => {
+  return `Use the user-provided styleGuide for all visual decisions: map its colors, typography scale, spacing, and radii directly to Tailwind v4 utilities (use arbitrary color classes like text-[#RRGGBB] / bg-[#RRGGBB] when hexes are given), enforce WCAG AA contrast (≥4.5:1 body, ≥3:1 large text), and if any token is missing fall back to neutral light defaults. Never invent new tokens; keep usage consistent across components.
 
 Inspiration images (URLs):
 
@@ -140,9 +149,14 @@ On conflicts: the styleGuide always wins over image cues.
       )
       .join(", ")}
     `;
+};
 
-//workflow redesign
-let userPrompt = `CRITICAL: You are redesigning a SPECIFIC WORKFLOW PAGE, not creating a new page from scratch.
+export const getWorkflowRedesignPrompt = (
+  userMessage: string,
+  currentHTML: string,
+  styleGuideData: { colorSections: any[]; typographySections: any[] }
+) => {
+  let userPrompt = `CRITICAL: You are redesigning a SPECIFIC WORKFLOW PAGE, not creating a new page from scratch.
 
     
 USER REQUEST: "${userMessage}"
@@ -193,4 +207,6 @@ IMPORTANT:
 
 Please generate the modified version of the provided workflow page HTML with the requested changes applied.`;
 
-userPrompt += `\n\nPlease generate a professional redesigned workflow page that incorporates the requested changes while maintaining the core functionality and design consistency.`;
+  userPrompt += `\n\nPlease generate a professional redesigned workflow page that incorporates the requested changes while maintaining the core functionality and design consistency.`;
+  return userPrompt;
+};

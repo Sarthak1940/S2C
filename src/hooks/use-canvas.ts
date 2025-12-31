@@ -6,7 +6,7 @@ import { FrameShape, Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawSha
 import { Point, handToolDisable, handToolEnable, panEnd, panMove, panStart, screenToWorld, wheelPan, wheelZoom } from "@/redux/slice/viewport";
 import { useAppDispatch, useAppSelector } from "@/redux/store"
 import { nanoid } from "@reduxjs/toolkit";
-import { PointerEventHandler, useEffect, useRef, useState } from "react";
+import React, { PointerEventHandler, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface TouchPointer {
@@ -212,18 +212,22 @@ export const useInfinityCanvas = () => {
         })
     }
 
-    const freeHandTick = (): void => {
-        const now = performance.now()
+    const freeHandTickRef = useRef<() => void>(null!)
+    
+    useEffect(() => {
+        freeHandTickRef.current = () => {
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
 
-        if (now - lastFreehandFrameRef.current >= RAF_INTERVAL_MS) {
-            if (freeDrawPointsRef.current.length > 0) requestRender()
-            lastFreehandFrameRef.current = now
-        }
+            if (now - lastFreehandFrameRef.current >= RAF_INTERVAL_MS) {
+                if (freeDrawPointsRef.current.length > 0) requestRender()
+                lastFreehandFrameRef.current = now
+            }
 
-        if (isDrawingRef.current) {
-            freehandRafRef.current = window.requestAnimationFrame(freeHandTick)
+            if (isDrawingRef.current) {
+                freehandRafRef.current = window.requestAnimationFrame(freeHandTickRef.current)
+            }
         }
-    }
+    }, [])
 
     const onWheel = (e: WheelEvent) => {
         e.preventDefault()
@@ -379,7 +383,7 @@ export const useInfinityCanvas = () => {
                     } else if (currentTool === "freedraw") {
                         freeDrawPointsRef.current = [world]
                         lastFreehandFrameRef.current = performance.now()
-                        freehandRafRef.current = window.requestAnimationFrame(freeHandTick)
+                        freehandRafRef.current = window.requestAnimationFrame(freeHandTickRef.current)
 
                         requestRender()
                     }
@@ -1324,7 +1328,7 @@ export const useChatWindow = (generatedUUID: string, isOpen: boolean) => {
         }
     }
 
-    const handleKeyPress = (e: KeyboardEvent) => {
+    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault()
             handleSendMessage()
@@ -1342,6 +1346,7 @@ export const useChatWindow = (generatedUUID: string, isOpen: boolean) => {
         inputRef,
         handleSendMessage,
         handleKeyPress,
-        handleClearChat
+        handleClearChat,
+        chatState
     }
 }

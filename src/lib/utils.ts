@@ -19,7 +19,7 @@ export const combineSlug = (name: string, maxLen = 80): string => {
           .replace(/[^a-z0-9]/g, "")
 
   if (!s) return "untited"
-  if (s.length > maxLen) s.slice(0, maxLen)
+  if (s.length > maxLen) s = s.slice(0, maxLen)
 
   return s
 }

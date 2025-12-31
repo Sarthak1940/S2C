@@ -25,6 +25,8 @@ const Navbar = () => {
     const hasCanvas = pathname.includes("canvas");
     const hasStyleGuide = pathname.includes("style-guide");
 
+    const me = useAppSelector(state => state.profile)
+
     const creditsBalance = useQuery(api.subscription.getCreditsBalance, {
         userId: me.id as Id<"users">
     })
@@ -34,7 +36,7 @@ const Navbar = () => {
         projectId ? { projectId: projectId as Id<"projects">} : "skip"
     )
 
-    const me = useAppSelector(state => state.profile)
+
 
     const tabs: TabProps[] = [
         {
