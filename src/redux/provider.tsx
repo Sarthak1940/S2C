@@ -1,5 +1,5 @@
 "use client"
-import React, { useRef } from 'react'
+import React, { useState } from 'react'
 import { makeStore } from './store'
 import { RootState } from './store'
 import { Provider } from 'react-redux'
@@ -10,9 +10,9 @@ type Props = {
 }
 
 const ReduxProvider = ({children, preloadedState}: Props) => {
-  const storeRef = useRef(makeStore(preloadedState))
+  const [store] = React.useState(() => makeStore(preloadedState))
 
-  return <Provider store={storeRef.current}>{children}</Provider>
+  return <Provider store={store}>{children}</Provider>
 }
 
 export default ReduxProvider
