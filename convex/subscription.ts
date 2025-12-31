@@ -239,7 +239,7 @@ const ENTITLED = new Set(["active", "trialing"])
             amount: -amount,
             type: "consume",
             reason: reason ?? "usage",
-            idempotencyKey,
+            idempotencyKey: idempotencyKey ?? `consume-${userId}-${Date.now()}`,,
             meta: {prev: sub.creditsBalance, next}
         })
 

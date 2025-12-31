@@ -1,5 +1,5 @@
 "use client"
-import { useInfinityCanvas, useInspiration } from '@/hooks/use-canvas'
+import { useGlobalChat, useInfinityCanvas, useInspiration } from '@/hooks/use-canvas'
 import React from 'react'
 import TextSidebar from './text-sidebar'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,8 @@ import { LinePreview } from './shapes/line/preview'
 import { ArrowPreview } from './shapes/arrow/preview'
 import { FreeDrawStrokePreview } from './shapes/stroke/preview'
 import { SelectionOverlay } from './shapes/selection'
+import InspirationSidebar from './shapes/inspiration-sidebar'
+import ChatWindow from './shapes/generatedui/chat'
 
 type Props = {}
 
@@ -34,10 +36,23 @@ const InfiniteCanvas = (props: Props) => {
     const freeDrawPoints = getFreeDrawPoints()
 
     const {isInspirationOpen, closeInspiration, toggleInspiration} = useInspiration()
+    const {
+      isChatOpen,
+      activeGeneratedUUID,
+      generateWorkflow,
+      exportDesign,
+      toggleChat,
+      closeChat
+    } = useGlobalChat()
 
   return (
     <>
         <TextSidebar isOpen={isSidebarOpen && hasSelectedText}/>
+        <InspirationSidebar isOpen={isInspirationOpen} onClose={closeInspiration}/>
+
+        {activeGeneratedUUID && (
+          <ChatWindow generatedUUID={activeGeneratedUUID} onClose={closeChat} isOpen={isChatOpen}/>
+        )}
 
         <div
         ref={attachCanvasRef}

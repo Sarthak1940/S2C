@@ -1,10 +1,13 @@
 "use client"
-import { downloadBlob, generateFrameSnapshot } from "@/lib/frame-snapshot";
+import { downloadBlob, exportGeneratedUiAsPNG, generateFrameSnapshot } from "@/lib/frame-snapshot";
+import { useGenerateWorkflowMutation } from "@/redux/api/generation";
+import { addErrorMessage, addUserMessage, clearChat, finishStreamingResponse, initializeChat, startStreamingResponse, updateStreamingContent } from "@/redux/slice/chat";
 import { FrameShape, Shape, Tool, addArrow, addEllipse, addFrame, addFreeDrawShape, addGeneratedUI, addLine, addRect, addText, clearSelection, removeShape, selectShape, setTool, updateShape } from "@/redux/slice/shapes";
 import { Point, handToolDisable, handToolEnable, panEnd, panMove, panStart, screenToWorld, wheelPan, wheelZoom } from "@/redux/slice/viewport";
 import { useAppDispatch, useAppSelector } from "@/redux/store"
 import { nanoid } from "@reduxjs/toolkit";
 import { PointerEventHandler, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface TouchPointer {
     id: number
@@ -904,7 +907,7 @@ export const useFrame = (shape: FrameShape) => {
             }))
 
             const reader = response.body?.getReader()
-            const decoder = new TextDecoder()
+            const decoder = new TextDecoder("utf-8")
             let accumulatedMarkup = ""
 
             let lastUpdateTime = 0
@@ -924,7 +927,7 @@ export const useFrame = (shape: FrameShape) => {
                             break;
                         }
 
-                        const chunk = decoder.decode(value)
+                        const chunk = decoder.decode(value, {stream: true})
                         accumulatedMarkup += chunk
 
                         const now = Date.now()
@@ -969,4 +972,376 @@ export const useInspiration = () => {
     }
 
     return {isInspirationOpen, toggleInspiration, closeInspiration, openInspiration}
+}
+
+export const useWorkflowGeneration = () => {
+    const dispatch = useAppDispatch()
+
+    const [, {isLoading: isGeneratingWorkflow}] = useGenerateWorkflowMutation()
+
+    const allShapes = useAppSelector(state => 
+        Object.values(state.shapes.shapes?.entities || {}).filter(
+            (shape): shape is Shape => shape !== undefined
+        )
+    )
+
+    const generateWorkflow = async (generatedUUID: string) => {
+        try {
+            const currentShape = allShapes.find(shape => shape.id === generatedUUID)
+
+            if (!currentShape || currentShape.type !== "generatedui") {
+                toast.error("generated ui not found")
+                return
+            }
+
+            if (!currentShape.uiSpecData) {
+                toast.error("generated ui data not found")
+                return
+            }
+
+            const urlParams = new URLSearchParams(window.location.search)
+            const projectId = urlParams.get("project")
+
+            if (!projectId) {
+                toast.error("project id not found")
+                return
+            }
+
+            const pageCount = 4
+            toast.loading("Generating workflow pages...", {
+                id: "workflow-generation"
+            })
+
+            const baseX = currentShape.x + currentShape.w + 100
+            const spacing = Math.max(450, currentShape.w + 50)
+            
+            const workflowPromises = Array.from({length: pageCount}).map(
+            async (_, index) => {
+                try {
+                    const response = await fetch("/api/generate/workflow", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            generatedUUID,
+                            currentHTML: currentShape.uiSpecData,
+                            projectId,
+                            pageIndex: index
+                        })
+                    })
+
+                    if (!response.ok) {
+                        throw new Error("Failed to generate workflow")
+                    }
+
+                    const workflowPosition = {
+                        x: baseX + spacing * index,
+                        y: currentShape.y,
+                        w: Math.max(450, currentShape.w),
+                        h: Math.max(300, currentShape.h)
+                    }
+
+                    const workflowId = nanoid()
+
+                    dispatch(addGeneratedUI({
+                        ...workflowPosition,
+                        id: workflowId,
+                        uiSpecData: null,
+                        sourceFrameId: currentShape.sourceFrameId,
+                        isWorkflowPage: true
+                    }))
+
+                    const reader = response.body?.getReader()
+                    const decoder = new TextDecoder("utf-8")
+                    let accumulatedMarkup = ""
+
+                    if (reader) {
+                        try {
+                            while (true) {
+                                const {done, value} = await reader.read()
+                                if (done) break
+
+                                const chunk = decoder.decode(value, {stream: true})
+                                accumulatedMarkup += chunk
+
+                                dispatch(updateShape({
+                                    id: workflowId,
+                                    patch: {
+                                        uiSpecData: accumulatedMarkup
+                                    }
+                                }))
+                            }
+                        } finally {
+                            reader.releaseLock()
+                        }
+                    }
+                    
+                   return {pageIndex: index, success: true}
+                } catch (error) {
+                    console.error("Failed to generate workflow page", error)
+                    return {pageIndex: index, success: false, error}
+                }
+            }
+            )
+
+            const results = await Promise.all(workflowPromises)
+            const successCount = results.filter(result => result.success).length
+            const failureCount = results.length - successCount
+
+            if (successCount === 4) {
+                toast.success("All 4 Workflow pages generated successfully", {id: "workflow-generation"})
+            } else if (successCount > 0) {
+                toast.success(`${successCount}/4 Workflow pages generated successfully`, {id: "workflow-generation"})
+
+                if (failureCount > 0) {
+                    toast.error(`${failureCount}/4 Workflow pages failed to generate`, {id: "workflow-generation"})
+                }
+            } else {
+                toast.error("Failed to generate workflow pages", {id: "workflow-generation"})
+            } 
+        } catch (error) {
+            console.error("Failed to generate workflow pages", error)
+            toast.error("Failed to generate workflow pages", {id: "workflow-generation"})
+        }
+    }
+
+    return {generateWorkflow, isGeneratingWorkflow}
+}
+
+export const useGlobalChat = () => {
+    const [isChatOpen, setIsChatOpen] = useState(false)
+    const [activeGeneratedUUID, setActiveGeneratedUUID] = useState<string | null>(null)
+    const {generateWorkflow} = useWorkflowGeneration()
+
+    const exportDesign = async (generatedUUID: string, element: HTMLElement | null) => {
+        if (!element) {
+            toast.error("No design element found for export")
+            return
+        }
+
+        try {
+            const filename = `generated-ui-${generatedUUID.slice(0, 8)}.png`
+            await exportGeneratedUiAsPNG(element, filename)
+            toast.success("Design exported successfully")
+        } catch (error) {
+            console.error("Failed to export design", error)
+            toast.error("Failed to export design")
+        }
+    }
+
+    const openChat = (generatedUUID: string) => {
+        setActiveGeneratedUUID(generatedUUID)
+        setIsChatOpen(true)
+    }
+
+    const closeChat = () => {
+        setIsChatOpen(false)
+        setActiveGeneratedUUID(null)
+    }
+
+    const toggleChat = (generatedUUID: string) => {
+        if (isChatOpen && activeGeneratedUUID === generatedUUID) {
+            closeChat()
+        } else {
+            openChat(generatedUUID)
+        }
+    }
+
+    return {
+        isChatOpen,
+        activeGeneratedUUID,
+        generateWorkflow,
+        toggleChat,
+        openChat,
+        closeChat,
+        exportDesign
+    }
+}
+
+export const useChatWindow = (generatedUUID: string, isOpen: boolean) => {
+    const [inputValue, setInputValue] = useState("")
+    const scrollAreaRef = useRef<HTMLDivElement>(null)
+    const inputRef = useRef<HTMLInputElement>(null)
+    const dispatch = useAppDispatch()
+
+    const chatState = useAppSelector(state => state.chat.chats[generatedUUID])
+    const currentShape = useAppSelector(
+        state => state.shapes.shapes.entities[generatedUUID]
+    )
+
+    const allShapes = useAppSelector(
+        state => state.shapes.shapes.entities
+    )
+
+    const getSourceFrame = (): FrameShape | null => {
+        if (!currentShape || currentShape.type !== "generatedui") return null
+
+        const sourceFrameId = currentShape.sourceFrameId
+        if (!sourceFrameId) return null
+
+        const sourceFrame = allShapes[sourceFrameId]
+        if (!sourceFrame || sourceFrame.type !== "frame") return null
+
+        return sourceFrame as FrameShape
+    }
+
+    useEffect(() => {
+        if (isOpen) {
+            dispatch(initializeChat(generatedUUID))
+        }
+    }, [dispatch, isOpen, generatedUUID])
+
+    useEffect(() => {
+        if (scrollAreaRef.current) {
+            scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight
+        }
+    }, [chatState?.messages])
+
+    useEffect(() => {
+        if (isOpen && inputRef.current) {
+            setTimeout(() => inputRef.current?.focus(), 100)
+        }
+    }, [isOpen])
+
+    const handleSendMessage = async () => {
+        if (!inputValue.trim() || chatState?.isStreaming) return
+
+        const message = inputValue.trim()
+        setInputValue("")
+
+        try {
+            dispatch(addUserMessage({
+                generatedUUID,
+                content: message
+            }))
+
+            const responseId = `response-${Date.now()}`
+            dispatch(startStreamingResponse({
+                generatedUUID,
+                messageId: responseId
+            }))
+
+            const isWorkflowPage = 
+                currentShape?.type === "generatedui" && currentShape?.isWorkflowPage
+
+            const searchParams = new URLSearchParams(window.location.search)
+            const projectId = searchParams.get("projectId")
+
+            if (!projectId) {
+                throw new Error("Project ID not found")
+            }
+
+            const baseRequestData = {
+                userMessage: message,
+                generatedUUID: generatedUUID,
+                currentHTML: currentShape?.type === "generatedui" ? currentShape.uiSpecData : null,
+                projectId
+            }
+
+            let apiEndpoint = '/api/generate/redesign'
+            let wireframeSnapshot: string | null = null
+
+            if (isWorkflowPage) {
+                apiEndpoint = '/api/generate/workflow-redesign'
+            } else {
+                const sourceFrame = getSourceFrame()
+                if (sourceFrame && sourceFrame.type === "frame") {
+                    try {
+                        const allShapesArray = Object.values(allShapes).filter(Boolean) as Shape[]
+
+                        const snapshot = await generateFrameSnapshot(sourceFrame, allShapesArray)
+
+                        const arrayBuffer = await snapshot.arrayBuffer()
+                        const uint8Array = new Uint8Array(arrayBuffer)
+                        const base64 = btoa(String.fromCharCode(...uint8Array))
+                        wireframeSnapshot = base64
+                        
+                    } catch (error) {
+                        console.error("Failed to generate wireframe snapshot", error)
+                    }
+                } else {
+                    console.warn("Source frame not found")
+                }
+            }
+
+            const requestData = isWorkflowPage ? baseRequestData : {
+                ...baseRequestData,
+                wireframeSnapshot
+            }
+
+            const response = await fetch(apiEndpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(requestData)
+            })
+
+            if (!response.ok) {
+                throw new Error("Failed to generate redesign")
+            }
+
+            const reader = response.body?.getReader()
+            const decoder = new TextDecoder("utf-8")
+            let accumulatedHTML = ""
+
+            if (reader) {
+                while (true) {
+                    const {done, value} = await reader.read()
+                    if (done) break
+
+                    const chunk = decoder.decode(value, {stream: true})
+                    accumulatedHTML += chunk
+
+                    dispatch(updateStreamingContent({
+                        generatedUUID,
+                        messageId: responseId,
+                        content: "Regenerating your design..."
+                    }))
+
+                    dispatch(updateShape({
+                        id: generatedUUID,
+                        patch: {uiSpecData: accumulatedHTML}
+                    }))
+
+                }
+            }
+
+            dispatch(finishStreamingResponse({
+                generatedUUID,
+                messageId: responseId,
+                finalContent: "Design regenerated successfully!"
+            }))
+ 
+        } catch (error) {
+            console.error("Failed to regenerate design", error)
+            dispatch(addErrorMessage({
+                generatedUUID,
+                error: error instanceof Error ? error.message : "Failed to regenerate design"
+            }))
+            toast.error("Failed to regenerate design")
+        }
+    }
+
+    const handleKeyPress: (e: KeyboardEvent) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault()
+            handleSendMessage()
+        }
+    }
+
+    const handleClearChat = () => {
+        dispatch(clearChat(generatedUUID))
+    }
+
+    return {
+        inputValue,
+        setInputValue,
+        scrollAreaRef,
+        inputRef,
+        handleSendMessage,
+        handleKeyPress,
+        handleClearChat
+    }
 }
