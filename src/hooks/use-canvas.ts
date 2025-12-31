@@ -1324,7 +1324,7 @@ export const useChatWindow = (generatedUUID: string, isOpen: boolean) => {
         }
     }
 
-    const handleKeyPress: (e: KeyboardEvent) => {
+    const handleKeyPress = (e: KeyboardEvent) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault()
             handleSendMessage()
