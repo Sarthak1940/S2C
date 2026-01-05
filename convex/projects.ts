@@ -47,6 +47,15 @@ export const createProject = mutation({
     }
 })
 
+/**
+ * Fetches and reserves the next project number for a user.
+ *
+ * If a counter exists, returns its current value and increments the stored counter.
+ * If no counter exists, initializes it and returns 1.
+ *
+ * @param userId - The ID of the user to get the next project number for
+ * @returns The project number assigned for the next project for `userId`
+ */
 async function getNextProjectNumber(ctx: any, userId: string): Promise<number> {
     const counter = await ctx.db
                           .query("project_counters")
